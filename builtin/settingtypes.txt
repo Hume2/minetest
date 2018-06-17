@@ -1712,6 +1712,7 @@ mgfractal_scale (Scale) v3f (4096.0, 1024.0, 4096.0)
 #    Range roughly -2 to 2. Multiply by 'scale' for offset in nodes.
 mgfractal_offset (Offset) v3f (1.79, 0.0, 0.0)
 
+
 #    W co-ordinate of the generated 3D slice of a 4D fractal.
 #    Determines which 3D slice of the 4D shape is generated.
 #    Alters the shape of the fractal.
@@ -1757,6 +1758,119 @@ mgfractal_np_cave1 (Cave1 noise) noise_params_3d 0, 12, (61, 61, 61), 52534, 3, 
 
 #    Second of 2 3D noises that together define tunnels.
 mgfractal_np_cave2 (Cave2 noise) noise_params_3d 0, 12, (67, 67, 67), 10325, 3, 0.5, 2.0
+
+[*Mapgen Terrainbrot]
+
+#    Controls width of tunnels, a smaller value creates wider tunnels.
+mgterrainbrot_cave_width (Cave width) float 0.09
+
+#    Y of upper limit of large caves.
+mgterrainbrot_large_cave_depth (Large cave depth) int -33
+
+#    Y of upper limit of lava in large caves.
+mgterrainbrot_lava_depth (Lava depth) int -256
+
+#    Lower Y limit of dungeons.
+mgterrainbrot_dungeon_ymin (Dungeon minimum Y) int -31000
+
+#    Upper Y limit of dungeons.
+mgterrainbrot_dungeon_ymax (Dungeon maximum Y) int 31000
+
+#    Iterations of the recursive function.
+#    Increasing this increases the amount of fine detail, but also
+#    increases processing load.
+mgterrainbrot_iterations (Iterations) int 10
+
+#    The rank of polynoms in rational functions.
+#    Increasing this increases variety, but also increases
+#    processing load.
+mgterrainbrot_rank (Rank) int 30 2 32767
+
+#    (X,Y,Z) scale of fractal in nodes.
+#    Actual fractal size will be 2 to 3 times larger.
+#    These numbers can be made very large, the fractal does
+#    not have to fit inside the world.
+#    Increase these to 'zoom' into the detail of the fractal.
+#    Default is for a vertically-squashed shape suitable for
+#    an island, set all 3 numbers equal for the raw shape.
+mgterrainbrot_scale (Scale) v3f (4096.0, 512.0, 4096.0)
+
+#    (X,Y,Z) offset of fractal from world centre in units of 'scale'.
+#    Can be used to move a desired point to (0, 0): to create a
+#    suitable spawn point, or to allow 'zooming in' on a desired
+#    point by increasing 'scale'.
+#    The default is tuned for a suitable spawn point for mandelbrot
+#    sets with default parameters, it may need altering in other
+#    situations.
+#    Range roughly -2 to 2. Multiply by 'scale' for offset in nodes.
+mgterrainbrot_offset (Offset) v3f (1.79, 0.0, 0.0)
+
+[**Noises]
+
+#    Y-level of seabed.
+mgterrainbrot_np_seabed (Seabed noise) noise_params_2d -1400, 9, (600, 600, 600), 41900, 5, 0.6, 2.0, eased
+
+#    Variation of biome filler depth.
+mgterrainbrot_np_filler_depth (Filler depth noise) noise_params_2d 0, 1.2, (150, 150, 150), 261, 3, 0.7, 2.0, eased
+
+#    First of 2 3D noises that together define tunnels.
+mgterrainbrot_np_cave1 (Cave1 noise) noise_params_3d 0, 12, (61, 61, 61), 52534, 3, 0.5, 2.0
+
+#    Second of 2 3D noises that together define tunnels.
+mgterrainbrot_np_cave2 (Cave2 noise) noise_params_3d 0, 12, (67, 67, 67), 10325, 3, 0.5, 2.0
+
+#    Noise used for generating coordinates for the fractal.
+#    Both real and imaginary axes use the same noise parameters
+#    except the seed.
+mgterrainbrot_np_coord (Coordinate noise) noise_params_3d 0, 1, (4, 4, 4), 41900, 12, 0.6, 2.0
+
+#    Noise used for generating coeficients of polynomes.
+#    All coeficients, both real and imaginary parts, use the
+#    same noise parameters except the seed.
+mgterrainbrot_np_polynom (Function noise) noise_params_3d 0, 1, (3, 3, 3), 41901, 10, 0.6, 2.0
+
+[**Rivers]
+
+#    Minimal Y-coordinate of a river.
+mgterrainbrot_river_height_min (River minimal height) int -4
+
+#    Maximal Y-coordinate of a river.
+mgterrainbrot_river_height_max (River maximal height) int 200
+
+#    The minimal absolute value for a river generation.
+#    Smaller number means deeper rivers.
+mgterrainbrot_river_min (River min) float 1.8
+
+#    The maximal absolute value for river water generation.
+#    Smaller number means less water in rivers.
+mgterrainbrot_river_max (River max) float 1.85
+
+#    The angular distance from the river centre to its bank.
+#    Larger number means wider rivers.
+mgterrainbrot_river_width (River width) float 0.15
+
+#    The angle at which the rivers generate.
+#    Changing this number moves all rivers around the hills.
+mgterrainbrot_river_angle (River angle) float 0 -3.141592 3.141592
+
+#    The coeficient by which all angles are multiplied.
+#    Larger numbers mean more thin rivers, smaller numbers mean
+#    fewer wider rivers.
+mgterrainbrot_river_count (River count) float 10
+
+#    The river bank width related to its height.
+#    Small numbers mean steeper banks.
+mgterrainbrot_river_bank_coef (River bank coef) float 0.001
+
+#    Number of extra iterations performed for rivers.
+#    Larger number means deeper rivers.
+mgterrainbrot_river_extra_iterations (River extra iterations) int 2
+
+#    Number of extra iterations needed for water generation.
+#    Larger number means less water in rivers.
+#    Setting the value above mgterrainbrot_river_extra_iterations
+#    results in no water appearing in rivers.
+mgterrainbrot_river_min_iterations (River min iterations) int 1
 
 [*Mapgen Valleys]
 

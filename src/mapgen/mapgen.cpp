@@ -43,6 +43,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "mapgen_carpathian.h"
 #include "mapgen_flat.h"
 #include "mapgen_fractal.h"
+#include "mapgen_terrainbrot.h"
 #include "mapgen_v5.h"
 #include "mapgen_v6.h"
 #include "mapgen_v7.h"
@@ -89,6 +90,7 @@ static MapgenDesc g_reg_mapgens[] = {
 	{"valleys",    true},
 	{"singlenode", true},
 	{"carpathian", true},
+	{"terrainbrot",    true},
 };
 
 STATIC_ASSERT(
@@ -160,6 +162,8 @@ Mapgen *Mapgen::createMapgen(MapgenType mgtype, int mgid,
 		return new MapgenFractal(mgid, (MapgenFractalParams *)params, emerge);
 	case MAPGEN_SINGLENODE:
 		return new MapgenSinglenode(mgid, (MapgenSinglenodeParams *)params, emerge);
+	case MAPGEN_TERRAINBROT:
+		return new MapgenTerrainbrot(mgid, (MapgenTerrainbrotParams *)params, emerge);
 	case MAPGEN_V5:
 		return new MapgenV5(mgid, (MapgenV5Params *)params, emerge);
 	case MAPGEN_V6:
@@ -185,6 +189,8 @@ MapgenParams *Mapgen::createMapgenParams(MapgenType mgtype)
 		return new MapgenFractalParams;
 	case MAPGEN_SINGLENODE:
 		return new MapgenSinglenodeParams;
+	case MAPGEN_TERRAINBROT:
+		return new MapgenTerrainbrotParams;
 	case MAPGEN_V5:
 		return new MapgenV5Params;
 	case MAPGEN_V6:
