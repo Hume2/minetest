@@ -1786,23 +1786,13 @@ mgterrainbrot_iterations (Iterations) int 10
 #    processing load.
 mgterrainbrot_rank (Rank) int 30 2 32767
 
-#    (X,Y,Z) scale of fractal in nodes.
-#    Actual fractal size will be 2 to 3 times larger.
-#    These numbers can be made very large, the fractal does
-#    not have to fit inside the world.
-#    Increase these to 'zoom' into the detail of the fractal.
-#    Default is for a vertically-squashed shape suitable for
-#    an island, set all 3 numbers equal for the raw shape.
+#    Y scale of fractal in nodes.
+#    X and Z scale of fractal are provided via coordinate and
+#    polynomial noise.
 mgterrainbrot_y_scale (Y-Scale) float 512.0
 
-#    (X,Y,Z) offset of fractal from world centre in units of 'scale'.
-#    Can be used to move a desired point to (0, 0): to create a
-#    suitable spawn point, or to allow 'zooming in' on a desired
-#    point by increasing 'scale'.
-#    The default is tuned for a suitable spawn point for mandelbrot
-#    sets with default parameters, it may need altering in other
-#    situations.
-#    Range roughly -2 to 2. Multiply by 'scale' for offset in nodes.
+#    Y offset of fractal from sea level in units of 'scale'.
+#    Can be used to move the sea level up and down.
 mgterrainbrot_y_offset (Y-Offset) float 0.0
 
 [**Noises]

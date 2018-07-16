@@ -39,8 +39,6 @@ struct MapgenTerrainbrotParams : public MapgenParams
 	s16 dungeon_ymax = 31000;
 	u16 iterations = 30;
 	u16 rank = 30;
-	//v3f scale = v3f(4096.0, 512.0, 4096.0);
-	//v3f offset = v3f(1.52, 0.0, 0.0);
 	float y_scale = 512.0;
 	float y_offset = 0.0;
 
@@ -89,8 +87,6 @@ private:
 	s16 dungeon_ymax;
 	u16 iterations;
 	u16 rank;
-	//v3f scale;
-	//v3f offset;
 	float y_scale;
 	float y_offset;
 

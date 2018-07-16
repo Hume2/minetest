@@ -341,12 +341,9 @@ bool MapgenTerrainbrot::getFractalAtPoint(s16 x, s16 y, s16 z, Noise** cache, u3
 	float xx = x, zz = z, cx, cy, cz, ox, oz;
 	is_water = false;
 
-	//xx = (float)x / scale.X - offset.X;
-	//zz = (float)z / scale.Z - offset.Z;
-
-	cx = noise_coord_x->result[index2d];//NoisePerlin2D(&noise_coord->np, xx, zz, seed);
+	cx = noise_coord_x->result[index2d];
 	cy = (float)y / y_scale - y_offset;
-	cz = noise_coord_z->result[index2d];//NoisePerlin2D(&noise_coord->np, xx, zz, seed+1);
+	cz = noise_coord_z->result[index2d];
 
 	float nx = 0.0f;
 	float nz = 0.0f;
@@ -390,7 +387,7 @@ bool MapgenTerrainbrot::getFractalAtPoint(s16 x, s16 y, s16 z, Noise** cache, u3
 	if (count_river) {
 		float mag = sqrt(nx*nx + nz*nz);
 		if (mag > river_min) {
-			float angle = fabs(fmodf(atan2(nz, nx)*river_count, M_PI*2) - (river_angle + river_width));
+			float angle = fabs(fmodf((atan2(nz, nx) + M_PI)*river_count, M_PI*2) - (river_angle + river_width));
 			if (angle - (mag - river_min)*river_bank_coef < river_width) {
 				if (mag < river_max && iter >= river_min_iterations) {
 					is_water = true;
@@ -432,20 +429,6 @@ s16 MapgenTerrainbrot::generateTerrain()
 	bool *waters_z = new bool[x_size * y_size];
 
 	for (s16 z = node_min.Z; z <= node_max.Z; z++) {
-		/*float zz = (float)z / scale.Z - offset.Z;
-
-		for (s16 x = node_min.X; x <= node_max.X; x++) {
-			float xx = (float)x / scale.X - offset.X;
-			u16 id = rank*4 - 1;
-			s16 x_ = x - node_min.X;
-			for (s16 i = 3; i >= 0; --i) {
-				for (s16 j = (i%2 ? rank-2 : rank); j >= 0; --j) {
-					perlin_cache[x_*rank*8 + 2*id] = NoisePerlin2D(&noise_polynom->np, xx, zz, seed + 2*id) * (j+1) / 4;
-					perlin_cache[x_*rank*8 + 2*id+1] = NoisePerlin2D(&noise_polynom->np, xx, zz, seed + 2*id+1) * (j+1) / 4;
-					id--;
-				}
-			}
-		}*/
 
 		for (s16 y = node_min.Y - 1; y <= node_max.Y + 1; y++) {
 			u32 vi = vm->m_area.index(node_min.X, y, z);
@@ -455,7 +438,7 @@ s16 MapgenTerrainbrot::generateTerrain()
 				if (vm->m_data[vi].getContent() == CONTENT_IGNORE) {
 					s16 seabed_height = noise_seabed->result[index2d];
 
-					if (y <= seabed_height || getFractalAtPoint(x, y, z, /*&(perlin_cache[x_*rank*8])*/
+					if (y <= seabed_height || getFractalAtPoint(x, y, z,
 						noise_polynom, index2d, is_water)) {
 						if (is_water && (waters_y[x_] || waters_x || waters_z[y_*x_size + x_])) {
 							vm->m_data[vi] = n_river_water;
