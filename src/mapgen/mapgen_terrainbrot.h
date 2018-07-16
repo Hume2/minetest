@@ -39,8 +39,10 @@ struct MapgenTerrainbrotParams : public MapgenParams
 	s16 dungeon_ymax = 31000;
 	u16 iterations = 30;
 	u16 rank = 30;
-	v3f scale = v3f(4096.0, 512.0, 4096.0);
-	v3f offset = v3f(1.52, 0.0, 0.0);
+	//v3f scale = v3f(4096.0, 512.0, 4096.0);
+	//v3f offset = v3f(1.52, 0.0, 0.0);
+	float y_scale = 512.0;
+	float y_offset = 0.0;
 
 	NoiseParams np_seabed;
 	NoiseParams np_filler_depth;
@@ -78,22 +80,24 @@ public:
 
 	virtual void makeChunk(BlockMakeData *data);
 	int getSpawnLevelAtPoint(v2s16 p);
-	bool getFractalAtPoint(s16 x, s16 y, s16 z, float* cache, bool& is_water);
+	bool getFractalAtPoint(s16 x, s16 y, s16 z, Noise** cache, u32 index2d, bool& is_water);
 	s16 generateTerrain();
 
 private:
 	s16 large_cave_depth;
 	s16 dungeon_ymin;
 	s16 dungeon_ymax;
-	//u16 fractal;
 	u16 iterations;
 	u16 rank;
-	v3f scale;
-	v3f offset;
+	//v3f scale;
+	//v3f offset;
+	float y_scale;
+	float y_offset;
 
 	Noise *noise_seabed;
-	Noise *noise_coord;
-	Noise *noise_polynom;
+	Noise *noise_coord_x;
+	Noise *noise_coord_z;
+	Noise **noise_polynom;
 
 	float river_min;
 	float river_max;
@@ -110,6 +114,6 @@ private:
 	void divide(float& x, float& y, float a, float b);
 	void sum(float& x, float& y, float a, float b);
 
-	void polynom(float& x, float& y, s32 seed, u16 my_rank, float xx, float yy, float* cache);
-	void rational(float& x, float& y, s32 seed, float xx, float yy, float* cache);
+	void polynom(float& x, float& y, s32 seed, u16 my_rank, float xx, float yy, Noise** cache, u32 index2d);
+	void rational(float& x, float& y, s32 seed, float xx, float yy, Noise** cache, u32 index2d);
 };

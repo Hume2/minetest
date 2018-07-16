@@ -59,8 +59,8 @@ MapgenTerrainbrot::MapgenTerrainbrot(int mapgenid, MapgenTerrainbrotParams *para
 	dungeon_ymax     = params->dungeon_ymax;
 	iterations       = params->iterations;
 	rank             = params->rank;
-	scale            = params->scale;
-	offset           = params->offset;
+	y_scale          = params->y_scale;
+	y_offset         = params->y_offset;
 
 	river_min              = params->river_min;
 	river_max              = params->river_max;
@@ -78,8 +78,13 @@ MapgenTerrainbrot::MapgenTerrainbrot(int mapgenid, MapgenTerrainbrotParams *para
 	//// 2D terrain noise
 	noise_seabed       = new Noise(&params->np_seabed, seed, csize.X, csize.Z);
 	noise_filler_depth = new Noise(&params->np_filler_depth, seed, csize.X, csize.Z);
-	noise_coord = new Noise(&params->np_coord, seed, csize.X, csize.Z);
-	noise_polynom = new Noise(&params->np_polynom, seed, csize.X, csize.Z);
+	noise_coord_x = new Noise(&params->np_coord, seed, csize.X, csize.Z);
+	noise_coord_z = new Noise(&params->np_coord, seed+1, csize.X, csize.Z);
+	noise_polynom = new Noise*[rank*8];
+
+	for (int i = rank*8 - 1; i >= 0; i--) {
+		noise_polynom[i] = new Noise(&params->np_polynom, seed+i, csize.X, csize.Z);
+	}
 
 	MapgenBasic::np_cave1 = params->np_cave1;
 	MapgenBasic::np_cave2 = params->np_cave2;
@@ -90,7 +95,12 @@ MapgenTerrainbrot::~MapgenTerrainbrot()
 {
 	delete noise_seabed;
 	delete noise_filler_depth;
-	delete noise_coord;
+	delete noise_coord_x;
+	delete noise_coord_z;
+
+	for (int i = rank*8 - 1; i >= 0; i--) {
+		delete noise_polynom[i];
+	}
 	delete noise_polynom;
 }
 
@@ -100,8 +110,8 @@ MapgenTerrainbrotParams::MapgenTerrainbrotParams():
 	np_filler_depth (0,  1.2,  v3f(150, 150, 150), 261,   3, 0.7, 2.0),
 	np_cave1        (0,   12,  v3f(61,  61,  61),  52534, 3, 0.5, 2.0),
 	np_cave2        (0,   12,  v3f(67,  67,  67),  10325, 3, 0.5, 2.0),
-	np_coord        (0,    1,  v3f(1,    1,   1),  41900, 5, 0.6, 2.0),
-	np_polynom      (0,    1,  v3f(1,    1,   1),  41901, 1, 0.6, 2.0)
+	np_coord        (0,    1,  v3f(16384, 16384, 16384),  41900, 5, 0.6, 2.0),
+	np_polynom      (0,    1,  v3f(12288, 12288, 12288),  41901, 1, 0.6, 2.0)
 {
 }
 
@@ -116,8 +126,8 @@ void MapgenTerrainbrotParams::readParams(const Settings *settings)
 	settings->getS16NoEx("mgterrainbrot_dungeon_ymax",     dungeon_ymax);
 	settings->getU16NoEx("mgterrainbrot_iterations",       iterations);
 	settings->getU16NoEx("mgterrainbrot_rank",             rank);
-	settings->getV3FNoEx("mgterrainbrot_scale",            scale);
-	settings->getV3FNoEx("mgterrainbrot_offset",           offset);
+	settings->getFloatNoEx("mgterrainbrot_y_scale",        y_scale);
+	settings->getFloatNoEx("mgterrainbrot_y_offset",       y_offset);
 
 	settings->getNoiseParams("mgterrainbrot_np_filler_depth", np_filler_depth);
 	settings->getNoiseParams("mgterrainbrot_np_cave1",        np_cave1);
@@ -148,8 +158,8 @@ void MapgenTerrainbrotParams::writeParams(Settings *settings) const
 	settings->setS16("mgterrainbrot_dungeon_ymax",     dungeon_ymax);
 	settings->setU16("mgterrainbrot_iterations",       iterations);
 	settings->setU16("mgterrainbrot_rank",             rank);
-	settings->setV3F("mgterrainbrot_scale",            scale);
-	settings->setV3F("mgterrainbrot_offset",           offset);
+	settings->setFloat("mgterrainbrot_y_scale",        y_scale);
+	settings->setFloat("mgterrainbrot_y_offset",       y_offset);
 
 	settings->setNoiseParams("mgterrainbrot_np_filler_depth", np_filler_depth);
 	settings->setNoiseParams("mgterrainbrot_np_cave1",        np_cave1);
@@ -185,7 +195,7 @@ int MapgenTerrainbrot::getSpawnLevelAtPoint(v2s16 p)
 		solid_below = true;
 
 	for (s16 y = search_start; y <= search_start + 128; y++) {
-		if (getFractalAtPoint(p.X, y, p.Y, nullptr, is_water)) {  // Fractal node
+		if (getFractalAtPoint(p.X, y, p.Y, nullptr, 0, is_water)) {  // Fractal node
 			solid_below = true;
 			air_count = 0;
 		} else if (solid_below) {  // Air above solid node
@@ -293,7 +303,7 @@ void MapgenTerrainbrot::divide(float& x, float& y, float a, float b) {
 	y /= p;
 }
 
-void MapgenTerrainbrot::polynom(float& x, float& y, s32 seed, u16 my_rank, float xx, float yy, float* cache) {
+void MapgenTerrainbrot::polynom(float& x, float& y, s32 seed, u16 my_rank, float xx, float yy, Noise** cache, u32 index2d) {
 	float cx = 1, cy = 0;
 	float bx = x, by = y;
 	x = 0;
@@ -301,11 +311,11 @@ void MapgenTerrainbrot::polynom(float& x, float& y, s32 seed, u16 my_rank, float
 	for (u16 i = 0; i <= my_rank; ++i) {
 		float ax, ay;
 		if (cache) {
-			ax = cache[2*i];
-			ay = cache[2*i+1];
+			ax = cache[2*i]->result[index2d] * (i+1) / 4;
+			ay = cache[2*i+1]->result[index2d] * (i+1) / 4;
 		} else {
-			ax = NoisePerlin2D(&noise_polynom->np, xx, yy, seed + 2*i) * (i+1) / 4;
-			ay = NoisePerlin2D(&noise_polynom->np, xx, yy, seed + 2*i + 1) * (i+1) / 4;
+			ax = NoisePerlin2D(&noise_polynom[2*i]->np, xx, yy, seed) * (i+1) / 4;
+			ay = NoisePerlin2D(&noise_polynom[2*i+1]->np, xx, yy, seed) * (i+1) / 4;
 		}
 		product(ax, ay, cx, cy);
 		sum(x, y, ax, ay);
@@ -313,30 +323,30 @@ void MapgenTerrainbrot::polynom(float& x, float& y, s32 seed, u16 my_rank, float
 	}
 }
 
-void MapgenTerrainbrot::rational(float& x, float& y, s32 seed, float xx, float yy, float* cache) {
+void MapgenTerrainbrot::rational(float& x, float& y, s32 seed, float xx, float yy, Noise** cache, u32 index2d) {
 	float x2 = x;
 	float y2 = y;
 	if (cache) {
-		polynom(x, y, seed, rank, xx, yy, cache);
-		polynom(x2, y2, seed + rank*2 + 2, rank-2, xx, yy, &(cache[rank*2 + 2]));
+		polynom(x, y, seed, rank, xx, yy, cache, index2d);
+		polynom(x2, y2, seed + rank*2 + 2, rank-2, xx, yy, &(cache[rank*2 + 2]), index2d);
 	} else {
-		polynom(x, y, seed, rank, xx, yy, nullptr);
-		polynom(x2, y2, seed + rank*2 + 2, rank-2, xx, yy, nullptr);
+		polynom(x, y, seed, rank, xx, yy, nullptr, 0);
+		polynom(x2, y2, seed + rank*2 + 2, rank-2, xx, yy, nullptr, 0);
 	}
 	divide(x, y, x2, y2);
 }
 
-bool MapgenTerrainbrot::getFractalAtPoint(s16 x, s16 y, s16 z, float* cache, bool& is_water)
+bool MapgenTerrainbrot::getFractalAtPoint(s16 x, s16 y, s16 z, Noise** cache, u32 index2d, bool& is_water)
 {
-	float xx, zz, cx, cy, cz, ox, oz;
+	float xx = x, zz = z, cx, cy, cz, ox, oz;
 	is_water = false;
 
-	xx = (float)x / scale.X - offset.X;
-	zz = (float)z / scale.Z - offset.Z;
+	//xx = (float)x / scale.X - offset.X;
+	//zz = (float)z / scale.Z - offset.Z;
 
-	cx = NoisePerlin2D(&noise_coord->np, xx, zz, seed);
-	cy = (float)y / scale.Y - offset.Y;
-	cz = NoisePerlin2D(&noise_coord->np, xx, zz, seed+1);
+	cx = noise_coord_x->result[index2d];//NoisePerlin2D(&noise_coord->np, xx, zz, seed);
+	cy = (float)y / y_scale - y_offset;
+	cz = noise_coord_z->result[index2d];//NoisePerlin2D(&noise_coord->np, xx, zz, seed+1);
 
 	float nx = 0.0f;
 	float nz = 0.0f;
@@ -345,9 +355,9 @@ bool MapgenTerrainbrot::getFractalAtPoint(s16 x, s16 y, s16 z, float* cache, boo
 	aax = cx;
 	aay = cz;
 	if (cache) {
-		rational(aax, aay, seed + rank*4, xx, zz, &(cache[rank*4]));
+		rational(aax, aay, seed + rank*4, xx, zz, &(cache[rank*4]), index2d);
 	} else {
-		rational(aax, aay, seed + rank*4, xx, zz, nullptr);
+		rational(aax, aay, seed + rank*4, xx, zz, nullptr, 0);
 	}
 	ox = cx;
 	oz = cz;
@@ -358,7 +368,7 @@ bool MapgenTerrainbrot::getFractalAtPoint(s16 x, s16 y, s16 z, float* cache, boo
 	for (iter = 0; iter < (count_river ? iterations + river_extra_iterations : iterations); iter++) {
 		nx = ox;
 		nz = oz;
-		rational(ox, oz, seed, xx, zz, cache);
+		rational(ox, oz, seed, xx, zz, cache, index2d);
 		sum(nx, nz, aax, aay);
 		float dist = exp(sqrt((nx-ox)*(nx-ox) + (nz-oz)*(nz-oz)) * cy) * 0.7;
 		nx *= dist;
@@ -409,6 +419,12 @@ s16 MapgenTerrainbrot::generateTerrain()
 	u16 y_size = node_max.Y - node_min.Y + 3;
 
 	noise_seabed->perlinMap2D(node_min.X, node_min.Z);
+	noise_coord_x->perlinMap2D(node_min.X, node_min.Z);
+	noise_coord_z->perlinMap2D(node_min.X, node_min.Z);
+
+	for (int i = rank*8 - 1; i >= 0; i--) {
+		noise_polynom[i]->perlinMap2D(node_min.X, node_min.Z);
+	}
 
 	float *perlin_cache = new float[rank*8 * x_size];
 	bool waters_x = false;
@@ -416,7 +432,7 @@ s16 MapgenTerrainbrot::generateTerrain()
 	bool *waters_z = new bool[x_size * y_size];
 
 	for (s16 z = node_min.Z; z <= node_max.Z; z++) {
-		float zz = (float)z / scale.Z - offset.Z;
+		/*float zz = (float)z / scale.Z - offset.Z;
 
 		for (s16 x = node_min.X; x <= node_max.X; x++) {
 			float xx = (float)x / scale.X - offset.X;
@@ -429,7 +445,7 @@ s16 MapgenTerrainbrot::generateTerrain()
 					id--;
 				}
 			}
-		}
+		}*/
 
 		for (s16 y = node_min.Y - 1; y <= node_max.Y + 1; y++) {
 			u32 vi = vm->m_area.index(node_min.X, y, z);
@@ -439,7 +455,8 @@ s16 MapgenTerrainbrot::generateTerrain()
 				if (vm->m_data[vi].getContent() == CONTENT_IGNORE) {
 					s16 seabed_height = noise_seabed->result[index2d];
 
-					if (y <= seabed_height || getFractalAtPoint(x, y, z, &(perlin_cache[x_*rank*8]), is_water)) {
+					if (y <= seabed_height || getFractalAtPoint(x, y, z, /*&(perlin_cache[x_*rank*8])*/
+						noise_polynom, index2d, is_water)) {
 						if (is_water && (waters_y[x_] || waters_x || waters_z[y_*x_size + x_])) {
 							vm->m_data[vi] = n_river_water;
 						} else {
