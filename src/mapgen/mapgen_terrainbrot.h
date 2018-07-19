@@ -61,6 +61,11 @@ struct MapgenTerrainbrotParams : public MapgenParams
 	u16 river_extra_iterations;
 	u16 river_min_iterations;
 
+	bool use_cavebrot;
+	NoiseParams np_cave_coord;
+	u16 cave_iterations;
+	float escape_distance;
+
 	MapgenTerrainbrotParams();
 	~MapgenTerrainbrotParams() = default;
 
@@ -106,10 +111,20 @@ private:
 	u16 river_extra_iterations;
 	u16 river_min_iterations;
 
+	bool use_cavebrot;
+	u16 cave_iterations;
+	float escape_distance_2;
+	Noise *noise_cave_coord_re;
+	Noise *noise_cave_coord_im;
+
 	void product(float& x, float& y, float a, float b);
 	void divide(float& x, float& y, float a, float b);
 	void sum(float& x, float& y, float a, float b);
 
 	void polynom(float& x, float& y, s32 seed, u16 my_rank, float xx, float yy, Noise** cache, u32 index2d);
 	void rational(float& x, float& y, s32 seed, float xx, float yy, Noise** cache, u32 index2d);
+	void cave_rational(float& x, float& y, s32 seed, float xx, float yy, Noise** cache, u32 index2d);
+
+	bool getCavebrotAtPoint(float re, float im, u32 index2d);
+	void cavebrot();
 };

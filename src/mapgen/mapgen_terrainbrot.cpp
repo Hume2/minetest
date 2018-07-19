@@ -73,6 +73,10 @@ MapgenTerrainbrot::MapgenTerrainbrot(int mapgenid, MapgenTerrainbrotParams *para
 	river_extra_iterations = params->river_extra_iterations;
 	river_min_iterations   = params->river_min_iterations;
 
+	use_cavebrot      = params->use_cavebrot;
+	cave_iterations   = params->cave_iterations;
+	escape_distance_2 = params->escape_distance * params->escape_distance;
+
 	std::cout << river_min << " " << river_max << " " << river_width << " " << river_count << " " << river_angle << std::endl;
 
 	//// 2D terrain noise
@@ -81,6 +85,8 @@ MapgenTerrainbrot::MapgenTerrainbrot(int mapgenid, MapgenTerrainbrotParams *para
 	noise_coord_x = new Noise(&params->np_coord, seed, csize.X, csize.Z);
 	noise_coord_z = new Noise(&params->np_coord, seed+1, csize.X, csize.Z);
 	noise_polynom = new Noise*[rank*8];
+	noise_cave_coord_re = new Noise(&params->np_cave_coord, seed+4, csize.X, csize.Y + 2, csize.Z);
+	noise_cave_coord_im = new Noise(&params->np_cave_coord, seed+7, csize.X, csize.Y + 2, csize.Z);
 
 	for (int i = rank*8 - 1; i >= 0; i--) {
 		noise_polynom[i] = new Noise(&params->np_polynom, seed+i, csize.X, csize.Z);
@@ -97,6 +103,8 @@ MapgenTerrainbrot::~MapgenTerrainbrot()
 	delete noise_filler_depth;
 	delete noise_coord_x;
 	delete noise_coord_z;
+	delete noise_cave_coord_re;
+	delete noise_cave_coord_im;
 
 	for (int i = rank*8 - 1; i >= 0; i--) {
 		delete noise_polynom[i];
@@ -111,7 +119,8 @@ MapgenTerrainbrotParams::MapgenTerrainbrotParams():
 	np_cave1        (0,   12,  v3f(61,  61,  61),  52534, 3, 0.5, 2.0),
 	np_cave2        (0,   12,  v3f(67,  67,  67),  10325, 3, 0.5, 2.0),
 	np_coord        (0,    1,  v3f(16384, 16384, 16384),  41900, 5, 0.6, 2.0),
-	np_polynom      (0,    1,  v3f(12288, 12288, 12288),  41901, 1, 0.6, 2.0)
+	np_polynom      (0,    1,  v3f(12288, 12288, 12288),  41901, 1, 0.6, 2.0),
+	np_cave_coord   (0,    1,  v3f(256, 256, 256), 71830, 6, 0.6, 2.0)
 {
 }
 
@@ -145,6 +154,15 @@ void MapgenTerrainbrotParams::readParams(const Settings *settings)
 	settings->getS16NoEx("mgterrainbrot_river_height_max",       river_height_max);
 	settings->getU16NoEx("mgterrainbrot_river_extra_iterations", river_extra_iterations);
 	settings->getU16NoEx("mgterrainbrot_river_min_iterations",   river_min_iterations);
+
+	try {
+		use_cavebrot = settings->getBool("mgterrainbrot_use_cavebrot");
+	} catch (...) {
+		//That smells fishy...
+	}
+	settings->getNoiseParams("mgterrainbrot_np_cavebrot_coord", np_cave_coord);
+	settings->getU16NoEx("mgterrainbrot_cavebrot_iterations",   cave_iterations);
+	settings->getFloatNoEx("mgterrainbrot_cavebrot_escape",     escape_distance);
 }
 
 
@@ -177,6 +195,11 @@ void MapgenTerrainbrotParams::writeParams(Settings *settings) const
 	settings->setS16("mgterrainbrot_river_height_max",       river_height_max);
 	settings->setU16("mgterrainbrot_river_extra_iterations", river_extra_iterations);
 	settings->setU16("mgterrainbrot_river_min_iterations",   river_min_iterations);
+
+	settings->setBool("mgterrainbrot_use_cavebrot",             use_cavebrot);
+	settings->setNoiseParams("mgterrainbrot_np_cavebrot_coord", np_cave_coord);
+	settings->setU16("mgterrainbrot_cavebrot_iterations",       cave_iterations);
+	settings->setFloat("mgterrainbrot_cavebrot_escape",         escape_distance);
 }
 
 
@@ -236,6 +259,10 @@ void MapgenTerrainbrot::makeChunk(BlockMakeData *data)
 
 	blockseed = getBlockSeed2(full_node_min, seed);
 
+	for (int i = rank*8 - 1; i >= 0; i--) {
+		noise_polynom[i]->perlinMap2D(node_min.X, node_min.Z);
+	}
+
 	// Generate base terrain, mountains, and ridges with initial heightmaps
 	s16 stone_surface_max_y = generateTerrain();
 
@@ -248,11 +275,15 @@ void MapgenTerrainbrot::makeChunk(BlockMakeData *data)
 		generateBiomes();
 	}
 
-	if (flags & MG_CAVES) {
-		// Generate tunnels
-		generateCavesNoiseIntersection(stone_surface_max_y);
-		// Generate large randomwalk caves
-		generateCavesRandomWalk(stone_surface_max_y, large_cave_depth);
+	if (use_cavebrot) {
+		cavebrot();
+	} else {
+		if (flags & MG_CAVES) {
+			// Generate tunnels
+			generateCavesNoiseIntersection(stone_surface_max_y);
+			// Generate large randomwalk caves
+			generateCavesRandomWalk(stone_surface_max_y, large_cave_depth);
+		}
 	}
 
 	if ((flags & MG_DUNGEONS) && full_node_min.Y >= dungeon_ymin &&
@@ -332,6 +363,19 @@ void MapgenTerrainbrot::rational(float& x, float& y, s32 seed, float xx, float y
 	} else {
 		polynom(x, y, seed, rank, xx, yy, nullptr, 0);
 		polynom(x2, y2, seed + rank*2 + 2, rank-2, xx, yy, nullptr, 0);
+	}
+	divide(x, y, x2, y2);
+}
+
+void MapgenTerrainbrot::cave_rational(float& x, float& y, s32 seed, float xx, float yy, Noise** cache, u32 index2d) {
+	float x2 = x;
+	float y2 = y;
+	if (cache) {
+		polynom(x, y, seed, rank-2, xx, yy, cache, index2d);
+		polynom(x2, y2, seed + rank*2 - 2, rank, xx, yy, &(cache[rank*2 + 2]), index2d);
+	} else {
+		polynom(x, y, seed, rank-2, xx, yy, nullptr, 0);
+		polynom(x2, y2, seed + rank*2 - 2, rank, xx, yy, nullptr, 0);
 	}
 	divide(x, y, x2, y2);
 }
@@ -419,9 +463,6 @@ s16 MapgenTerrainbrot::generateTerrain()
 	noise_coord_x->perlinMap2D(node_min.X, node_min.Z);
 	noise_coord_z->perlinMap2D(node_min.X, node_min.Z);
 
-	for (int i = rank*8 - 1; i >= 0; i--) {
-		noise_polynom[i]->perlinMap2D(node_min.X, node_min.Z);
-	}
 
 	float *perlin_cache = new float[rank*8 * x_size];
 	bool waters_x = false;
@@ -466,4 +507,59 @@ s16 MapgenTerrainbrot::generateTerrain()
 	delete waters_z;
 
 	return stone_surface_max_y;
+}
+
+bool MapgenTerrainbrot::getCavebrotAtPoint(float re, float im, u32 index2d)
+{
+	//std::cout << "Kejvbrot" << std::endl;
+	float rr, ii;
+	rr = re;
+	ii = im;
+	for (u16 iter = 0; iter < cave_iterations; iter++) {
+		cave_rational(rr, ii, seed, 0, 0, noise_polynom, index2d);
+		sum(rr, ii, re, im);
+		if (rr*rr + ii*ii > escape_distance_2 || rr != rr || ii != ii) {
+			return false;
+		}
+	}
+	return true;	
+}
+
+void MapgenTerrainbrot::cavebrot()
+{
+	MapNode n_air(CONTENT_AIR);
+	MapNode n_stone(c_stone);
+	MapNode n_water(c_water_source);
+
+	u32 index2d = 0;
+	u32 index3d = 0;
+
+	noise_cave_coord_re->perlinMap3D(node_min.X, node_min.Y - 1, node_min.Z);
+	noise_cave_coord_im->perlinMap3D(node_min.X, node_min.Y - 1, node_min.Z);
+
+	for (s16 z=node_min.Z; z<=node_max.Z; z++) {
+		for (s16 y=node_min.Y - 1; y<=node_max.Y + 1; y++) {
+			u32 vi = vm->m_area.index(node_min.X, y, z);
+			for (s16 x=node_min.X; x<=node_max.X; x++, vi++, index3d++, index2d++) {
+
+				content_t c = vm->m_data[vi].getContent();
+				if (ndef->get(c).is_ground_content) {
+//					bool brot = getCavebrotAtPoint(noise_cave_coord_re->result[index3d],
+//						noise_cave_coord_im->result[index3d], index2d);
+					if (!getCavebrotAtPoint(noise_cave_coord_re->result[index3d],
+					noise_cave_coord_im->result[index3d], index2d)) {
+						vm->m_data[vi] = n_air;
+						vm->m_flags[vi] |= VMANIP_FLAG_CAVE;
+					}
+					//std::cout << brot << std::endl;
+					/*if (noise_cave_coord_im->result[index3d] > 0) {
+						vm->m_data[vi] = n_air;
+						vm->m_flags[vi] |= VMANIP_FLAG_CAVE;
+					}*/
+				}
+			}
+			index2d -= ystride;
+		}
+		index2d += ystride;
+	}
 }
