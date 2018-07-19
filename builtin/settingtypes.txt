@@ -1804,9 +1804,11 @@ mgterrainbrot_np_seabed (Seabed noise) noise_params_2d -1400, 9, (600, 600, 600)
 mgterrainbrot_np_filler_depth (Filler depth noise) noise_params_2d 0, 1.2, (150, 150, 150), 261, 3, 0.7, 2.0, eased
 
 #    First of 2 3D noises that together define tunnels.
+#    Not used if cavebrot is enabled.
 mgterrainbrot_np_cave1 (Cave1 noise) noise_params_3d 0, 12, (61, 61, 61), 52534, 3, 0.5, 2.0
 
 #    Second of 2 3D noises that together define tunnels.
+#    Not used if cavebrot is enabled.
 mgterrainbrot_np_cave2 (Cave2 noise) noise_params_3d 0, 12, (67, 67, 67), 10325, 3, 0.5, 2.0
 
 #    Noise used for generating coordinates for the fractal.
@@ -1870,16 +1872,16 @@ mgterrainbrot_use_cavebrot (Use cavebrot) bool true
 #    Noise used for generating coordinates for the cavebrot.
 #    Both real and imaginary axes use the same noise parameters
 #    except the seed.
-mgterrainbrot_np_cavebrot_coord (Cavebrot coordinate noise) noise_params_3d 0, 1, (256, 256, 256), 71830, 6, 0.6, 2.0
+mgterrainbrot_np_cavebrot_coord (Cavebrot coordinate noise) noise_params_3d 0, 1, (2048, 1024, 2048), 71830, 9, 0.6, 2.0
 
 #    Iterations of the recursive function.
 #    Increasing this increases the amount of fine detail, but also
 #    increases processing load.
-mgterrainbrot_cavebrot_iterations (Cavebrot iterations) int 10
+mgterrainbrot_cavebrot_iterations (Cavebrot iterations) int 5
 
 #    Escape distance of the recursive function.
 #    Bigger escape distance means narrower caves.
-mgterrainbrot_cavebrot_escape (Cavebrot escape distance) float 2
+mgterrainbrot_cavebrot_escape (Cavebrot escape distance) float 5
 
 [*Mapgen Valleys]
 
