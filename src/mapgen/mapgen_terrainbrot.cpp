@@ -334,7 +334,7 @@ void MapgenTerrainbrot::divide(float& x, float& y, float a, float b) {
 	y /= p;
 }
 
-void MapgenTerrainbrot::polynom(float& x, float& y, s32 seed, u16 my_rank, float xx, float yy, Noise** cache, u32 index2d) {
+void MapgenTerrainbrot::polynom(float& x, float& y, s32 my_seed, u16 my_rank, float xx, float yy, Noise** cache, u32 index2d) {
 	float cx = 1, cy = 0;
 	float bx = x, by = y;
 	x = 0;
@@ -345,8 +345,8 @@ void MapgenTerrainbrot::polynom(float& x, float& y, s32 seed, u16 my_rank, float
 			ax = cache[2*i]->result[index2d] * (i+1) / 4;
 			ay = cache[2*i+1]->result[index2d] * (i+1) / 4;
 		} else {
-			ax = NoisePerlin2D(&noise_polynom[2*i]->np, xx, yy, seed) * (i+1) / 4;
-			ay = NoisePerlin2D(&noise_polynom[2*i+1]->np, xx, yy, seed) * (i+1) / 4;
+			ax = NoisePerlin2D(&noise_polynom[2*i]->np, xx, yy, my_seed + 2*i) * (i+1) / 4;
+			ay = NoisePerlin2D(&noise_polynom[2*i+1]->np, xx, yy, my_seed + 2*i+1) * (i+1) / 4;
 		}
 		product(ax, ay, cx, cy);
 		sum(x, y, ax, ay);
@@ -354,28 +354,28 @@ void MapgenTerrainbrot::polynom(float& x, float& y, s32 seed, u16 my_rank, float
 	}
 }
 
-void MapgenTerrainbrot::rational(float& x, float& y, s32 seed, float xx, float yy, Noise** cache, u32 index2d) {
+void MapgenTerrainbrot::rational(float& x, float& y, s32 my_seed, float xx, float yy, Noise** cache, u32 index2d) {
 	float x2 = x;
 	float y2 = y;
 	if (cache) {
-		polynom(x, y, seed, rank, xx, yy, cache, index2d);
-		polynom(x2, y2, seed + rank*2 + 2, rank-2, xx, yy, &(cache[rank*2 + 2]), index2d);
+		polynom(x, y, my_seed, rank, xx, yy, cache, index2d);
+		polynom(x2, y2, my_seed + rank*2 + 2, rank-2, xx, yy, &(cache[rank*2 + 2]), index2d);
 	} else {
-		polynom(x, y, seed, rank, xx, yy, nullptr, 0);
-		polynom(x2, y2, seed + rank*2 + 2, rank-2, xx, yy, nullptr, 0);
+		polynom(x, y, my_seed, rank, xx, yy, nullptr, 0);
+		polynom(x2, y2, my_seed + rank*2 + 2, rank-2, xx, yy, nullptr, 0);
 	}
 	divide(x, y, x2, y2);
 }
 
-void MapgenTerrainbrot::cave_rational(float& x, float& y, s32 seed, float xx, float yy, Noise** cache, u32 index2d) {
+void MapgenTerrainbrot::cave_rational(float& x, float& y, s32 my_seed, float xx, float yy, Noise** cache, u32 index2d) {
 	float x2 = x;
 	float y2 = y;
 	if (cache) {
-		polynom(x, y, seed, rank-2, xx, yy, cache, index2d);
-		polynom(x2, y2, seed + rank*2 - 2, rank, xx, yy, &(cache[rank*2 + 2]), index2d);
+		polynom(x, y, my_seed, rank-2, xx, yy, cache, index2d);
+		polynom(x2, y2, my_seed + rank*2 + 2, rank, xx, yy, &(cache[rank*2 + 2]), index2d);
 	} else {
-		polynom(x, y, seed, rank-2, xx, yy, nullptr, 0);
-		polynom(x2, y2, seed + rank*2 - 2, rank, xx, yy, nullptr, 0);
+		polynom(x, y, my_seed, rank-2, xx, yy, nullptr, 0);
+		polynom(x2, y2, my_seed + rank*2 + 2, rank, xx, yy, nullptr, 0);
 	}
 	divide(x, y, x2, y2);
 }
@@ -385,9 +385,15 @@ bool MapgenTerrainbrot::getFractalAtPoint(s16 x, s16 y, s16 z, Noise** cache, u3
 	float xx = x, zz = z, cx, cy, cz, ox, oz;
 	is_water = false;
 
-	cx = noise_coord_x->result[index2d];
+	if (cache) {
+		cx = noise_coord_x->result[index2d];
+		cz = noise_coord_z->result[index2d];
+	} else {
+		cx = NoisePerlin2D(&noise_coord_x->np, x, z, seed);
+		cz = NoisePerlin2D(&noise_coord_z->np, x, z, seed + 1);
+	}
+
 	cy = (float)y / y_scale - y_offset;
-	cz = noise_coord_z->result[index2d];
 
 	float nx = 0.0f;
 	float nz = 0.0f;
