@@ -470,7 +470,6 @@ s16 MapgenTerrainbrot::generateTerrain()
 	noise_coord_z->perlinMap2D(node_min.X, node_min.Z);
 
 
-	float *perlin_cache = new float[rank*8 * x_size];
 	bool waters_x = false;
 	bool *waters_y = new bool[x_size];
 	bool *waters_z = new bool[x_size * y_size];
@@ -508,7 +507,6 @@ s16 MapgenTerrainbrot::generateTerrain()
 		}
 		index2d += ystride;
 	}
-	delete perlin_cache;
 	delete waters_y;
 	delete waters_z;
 
