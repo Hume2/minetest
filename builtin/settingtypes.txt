@@ -1867,7 +1867,7 @@ mgterrainbrot_river_min_iterations (River min iterations) int 1
 [**Cavebrot]
 
 #    Use cavebrot.
-mgterrainbrot_use_cavebrot (Use cavebrot) bool true
+mgterrainbrot_use_cavebrot (Use cavebrot) bool false
 
 #    Noise used for generating coordinates for the cavebrot.
 #    Both real and imaginary axes use the same noise parameters
