@@ -517,7 +517,6 @@ s16 MapgenTerrainbrot::generateTerrain()
 
 bool MapgenTerrainbrot::getCavebrotAtPoint(float re, float im, u32 index2d)
 {
-	//std::cout << "Kejvbrot" << std::endl;
 	float rr, ii;
 	rr = re;
 	ii = im;
@@ -550,18 +549,11 @@ void MapgenTerrainbrot::cavebrot()
 
 				content_t c = vm->m_data[vi].getContent();
 				if (ndef->get(c).is_ground_content) {
-//					bool brot = getCavebrotAtPoint(noise_cave_coord_re->result[index3d],
-//						noise_cave_coord_im->result[index3d], index2d);
 					if (!getCavebrotAtPoint(noise_cave_coord_re->result[index3d],
 					noise_cave_coord_im->result[index3d], index2d)) {
 						vm->m_data[vi] = n_air;
 						vm->m_flags[vi] |= VMANIP_FLAG_CAVE;
 					}
-					//std::cout << brot << std::endl;
-					/*if (noise_cave_coord_im->result[index3d] > 0) {
-						vm->m_data[vi] = n_air;
-						vm->m_flags[vi] |= VMANIP_FLAG_CAVE;
-					}*/
 				}
 			}
 			index2d -= ystride;
